@@ -1,6 +1,7 @@
 #include <SPI.h>
 #include <Ethernet.h>
 #include <avr/pgmspace.h>
+#include <DHT.h>
 
 #define REQUEST_BUFFER_SIZE 20
 
@@ -15,15 +16,31 @@ const char indexHtml[] PROGMEM  = {
 "<body>"\
 "<div class=\"container\">"\
 "<h1>Arduino Control Panel</h1>"\
+"<h3>RELAY</h3>"\
 "<div class=\"row\">"\
 "<div class=\"col-md-12\">"\
 // copy this line if you want control more LEDs
 "<button class=\"btn btn-default btn-led\" data-led=\"9\">LED 9 <span>OFF</span></button>"\
 "</div>"\
 "</div>"\
+"<h3>SENSORS</h3>"\
+
+"<div class=\"row\">"\
+"<div class=\"col-md-4\">"\
+"<div class=\"panel panel-default\">"\
+"<div class=\"panel-heading\">Room 1</div>"\
+"<div class=\"panel-body text-center\">"\
+"<div id=\"temp-gauge\"></div>"\
+"</div>"\
+"</div>"\
+"</div>"\
+"</div>"\
+
 "</div>"\
 "<script src=\"https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js\"></script>"\
 "<script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js\"></script>"\
+"<script src=\"http://mirobozik.com/Media/raphael-2.1.4.min.js\"></script>"\
+"<script src=\"http://mirobozik.com/Media/justgage.js\"></script>"\
 "<script src=\"http://mirobozik.com/Media/acp.js\"></script>"\
 "</body>"\
 "</html>"
@@ -38,10 +55,12 @@ boolean ledStatus;
 
 char httpRequest[REQUEST_BUFFER_SIZE] = {0};
 char requestIndex = 0;
+DHT dht(2, DHT11);
 
 void setup()
 {
 	pinMode(9, OUTPUT);
+	dht.begin();
 	
 	// Open serial communications and wait for port to open:
 	Serial.begin(9600);
@@ -102,7 +121,13 @@ void loop()
 							char c = pgm_read_byte_near(indexHtml + k);
 							Serial.print(c);
 							client.print(c);
-						}			
+						}
+					}
+					if(strContains(httpRequest, "GET /temp "))
+					{						
+						client.println();
+						float temp = dht.readTemperature();
+						client.print(temp);
 					}
 					
 					requestIndex = 0;

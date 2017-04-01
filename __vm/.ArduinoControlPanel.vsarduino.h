@@ -21,6 +21,7 @@
 
 //
 //
+float getTemperature();
 void setLedState(EthernetClient cl);
 void strClear(char *str, char length);
 char strContains(char *str, char *sfind);

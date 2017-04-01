@@ -1,9 +1,66 @@
+/********************************************************************/
+// Arduino Ethernet Example
+// - control/monitor arduino over local network
+// - example for home automation system
+
+/********************************************************************/
+// INSTALL
+// - UIPEthernet for ENC28J60
+// - OneWire, DallasTemperature for DS18B20 temperature sensor
+// - DHT sensor library for DHT sensor
+
+/********************************************************************/
+// WIRE UP
+//
+//	ENC28J60 - Arduino
+//	----------------------
+//	SS			- 10
+//	MOSI(SI)	- 11
+//	MISO (SO)	- 12
+//	SCK			- 13
+//	----------------------
+//	
+//	DS18B20 - Arduino
+//	----------------------
+//	1.pin - +5V
+//	2.pin - 2
+//	3.pin - GND
+//
+//	DHT11 - Arduino
+//	----------------------
+//	1.pin - 2
+//  2.pin - +5V
+//	3.pin - GND
+
+/********************************************************************/
+// SETUP
+// uncomment for UIP Ethernet module
+//#define UIP 1
+// uncomment for DHT11
+#define DHT11 1
+// uncomment for LM35
+//#define LM35 1
+// uncomment for DS18B20
+//#define DS 1
+
+
+#include <avr/pgmspace.h>
+#ifdef UIP
+#include <UIPEthernet.h>
+#else
 #include <SPI.h>
 #include <Ethernet.h>
-#include <avr/pgmspace.h>
+#endif
+#ifdef DHT11
 #include <DHT.h>
+#endif
+#ifdef DS
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#endif
 
 #define REQUEST_BUFFER_SIZE 20
+#define ONE_WIRE_BUS 2
 
 const char indexHtml[] PROGMEM  = {
 "<!DOCTYPE HTML>" \
@@ -50,17 +107,41 @@ byte mac[] = {
 	0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
 };
 
+#ifdef UIP
+EthernetServer server = EthernetServer(80);
+#else
 EthernetServer server(80);
+#endif
+
 boolean ledStatus;
 
 char httpRequest[REQUEST_BUFFER_SIZE] = {0};
 char requestIndex = 0;
+
+#ifdef LM35
+int adcValue = 0;
+#endif
+
+#ifdef DHT11
 DHT dht(2, DHT11);
+#endif // DHT11
+
+#ifdef DS
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+#endif // DS
 
 void setup()
 {
 	pinMode(9, OUTPUT);
+
+#ifdef DHT11
 	dht.begin();
+#endif
+
+#ifdef DS
+	sensors.begin();
+#endif // DS
 	
 	// Open serial communications and wait for port to open:
 	Serial.begin(9600);
@@ -126,7 +207,7 @@ void loop()
 					if(strContains(httpRequest, "GET /temp "))
 					{						
 						client.println();
-						float temp = dht.readTemperature();
+						float temp = getTemperature();
 						client.print(temp);
 					}
 					
@@ -150,6 +231,25 @@ void loop()
 		client.stop();
 		Serial.println("client disconnected");
 	}
+}
+
+float getTemperature()
+{
+
+#ifdef DHT11
+	return dht.readTemperature();
+#endif // DHT11
+
+#ifdef LM35
+	adcValue = analogRead(A0);	
+	// (ADC * AREF / 10mV) / 1024
+	return ((adcValue * 5000.0) / 10.0) / 1024;
+#endif // LM35
+
+#ifdef DS
+	sensors.requestTemperatures();
+	return sensors.getTempCByIndex(0);
+#endif // DS
 }
 
 void setLedState(EthernetClient cl)
